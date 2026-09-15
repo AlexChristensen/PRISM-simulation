@@ -1,8 +1,6 @@
 manuscript/*
 simulation/OLD/*
 simulation/conditions/*
-simulation/results/
 simulation/timing/*
-simulation/data/*
 spearman/*
 mean/*

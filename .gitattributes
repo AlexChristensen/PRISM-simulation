@@ -1,0 +1,2 @@
+simulation/data/** filter=lfs diff=lfs merge=lfs -text
+simulation/results/** filter=lfs diff=lfs merge=lfs -text
