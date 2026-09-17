@@ -159,8 +159,92 @@ ggsave(
   height = 6, width = 10, bg = "white"
 )
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
+#### Figure 4: Effect of Factors and Sample Size ----
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
+
+# Restrict to second order only for Figure 5
+condition_summary_higher <- condition_summary %>%
+  filter(Order == "higher")
+
+# Set methods
+condition_summary_higher <- condition_summary_higher %>%
+  filter(METHOD %in% c("lower_louvain", "prism", "paf", "pca"))
+
+# Factor the methods
+condition_summary_higher$METHOD <- factor(
+  condition_summary_higher$METHOD,
+  levels = c("prism", "lower_louvain", "paf", "pca")
+)
+
+# Figure 4 (Second Order Accuracy and Omega Index only)
+figure4 <- ggplot(
+  data = condition_summary_higher,
+  aes(x = N, y = value, group = METHOD)
+) +
+  facet_grid(
+    rows = vars(Metric), cols = vars(HighF, LowF), switch = "y",
+    labeller = labeller(
+      Metric = as_labeller(c("correct" = "Accuracy", "ari" = "omega"),
+                           default = label_parsed),
+      LowF = c(
+        "3" = "First = 3",
+        "5" = "First = 5"
+      ),
+      HighF = c(
+        "1" = "Second = 1",
+        "2" = "Second = 2",
+        "4" = "Second = 4",
+        "6" = "Second = 6"
+      )
+    )
+  ) +
+  geom_hline(yintercept = seq(0, 1, 0.25), linewidth = 0.3, color = "lightgrey") +
+  geom_line(
+    aes(color = METHOD), position = position_dodge(0.9),
+    linewidth = 0.5, alpha = 0.5
+  ) +
+  geom_point(
+    aes(fill = METHOD), position = position_dodge(0.9),
+    size = 2, shape = 21, stroke = 0.25, color = "white"
+  ) +
+  scale_color_manual(name = "Method", labels = LABELS, values = COLORS) +
+  scale_fill_manual(name = "Method", labels = LABELS, values = COLORS) +
+  scale_y_continuous(
+    limits = c(0.00, 1.05),
+    breaks = seq(0.00, 1.00, 0.25),
+    labels = EGAnet:::format_decimal(seq(0.00, 1.00, 0.25), 2),
+    expand = c(0, 0),
+    position = "right"
+  ) +
+  labs(x = "Sample Size", y = "Second Order\nAccuracy") +
+  theme(
+    panel.background = element_blank(),
+    panel.spacing.y = unit(0.5, "cm"),
+    axis.line = element_line(linewidth = 0.3, color = "black"),
+    axis.line.y = element_blank(),
+    axis.ticks = element_line(linewidth = 0.3),
+    axis.ticks.y = element_blank(),
+    axis.title = element_text(size = 10),
+    axis.title.y.right = element_text(angle = 0, vjust = 0.5),
+    axis.text = element_text(size = 8),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.background = element_rect(color = "black", fill = "white", linewidth = 0.3),
+    strip.text = element_text(size = 8),
+    legend.title = element_text(size = 10, hjust = 0.5),
+    legend.text = element_text(size = 8),
+    legend.position = "bottom",
+    legend.title.position = "bottom"
+  ); figure4
+
+# Save plot
+ggsave(
+  figure4, filename = "./figures/figure4.pdf",
+  height = 6, width = 10, bg = "white"
+)
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Figure 4: Worst and Best Accuracy by Condition ----
+#### Figure 5: Worst and Best Accuracy by Condition ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
 # Set factor labels
@@ -222,8 +306,8 @@ effects$METHOD <- factor(
   levels = c("prism", "lower_louvain", "max", "map", "paf", "pca", "vss1", "vss2")
 )
 
-# Figure 4
-figure4 <- ggplot(effects) +
+# Figure 5
+figure5 <- ggplot(effects) +
   facet_grid(
     cols = vars(Order),
     labeller = labeller(Order = c("lower" = "First Order", "higher" = "Second Order"))
@@ -283,16 +367,16 @@ figure4 <- ggplot(effects) +
     legend.box = "vertical",
     legend.spacing.y = unit(0, "cm"),
     legend.margin = margin(t = 0, b = 0)
-  ); figure4
+  ); figure5
 
 # Save plot
 ggsave(
-  figure4, filename = "./figures/figure4.pdf",
+  figure5, filename = "./figures/figure5.pdf",
   height = 8, width = 12, bg = "white"
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Supplementary Analysis: Omega-Squared Effect Sizes for Figure 4 ----
+#### Supplementary Analysis: Omega-Squared Effect Sizes for Figure 5 ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
 # Break down by main effects
@@ -308,142 +392,6 @@ t(
   latentFactoR:::effect_table(
     formula = lower_correct_mean ~ N + SKEW + LowV + LowL + LowF + HighL + HighF + HighC + Overlap + Error, data = anova_results, method= "METHOD", type = "II", minimum_effect = "large"
   )
-)
-
-
-# For each method, fit one main-effects-only ANOVA per order (all ten design
-# factors as predictors, no interactions) and pull each factor's partial
-# omega-squared as its ANOVA effect size, for reporting in text. This is the
-# classic ANOVA omega-squared effect-size statistic -- unrelated to the
-# omega INDEX metric used elsewhere in this script. Not plotted; run this
-# chunk directly in R and inspect/report the values as needed.
-compute_omega2 <- function(method, data, outcome_var, factor_vars) {
-  d <- data[data$METHOD == method & !is.na(data[[outcome_var]]), c(outcome_var, factor_vars)]
-
-  # Some methods never produce a higher order estimate (e.g. MAP), leaving
-  # nothing to fit -- report their effect sizes as missing rather than error
-  if (nrow(d) == 0) return(data.frame(METHOD = method, Factor = factor_vars, omega2 = NA_real_))
-
-  d[[outcome_var]] <- as.numeric(d[[outcome_var]])
-  d[factor_vars] <- lapply(d[factor_vars], factor)
-
-  # A factor can end up constant after subsetting to this method/outcome;
-  # drop it from the model and report it as missing
-  keep_vars <- factor_vars[sapply(d[factor_vars], nlevels) >= 2]
-  model <- aov(as.formula(paste(outcome_var, "~", paste(keep_vars, collapse = " + "))), data = d)
-  om <- as.data.frame(effectsize::omega_squared(model, partial = TRUE))
-
-  out <- data.frame(METHOD = method, Factor = om$Parameter, omega2 = om$Omega2_partial)
-  dropped_vars <- setdiff(factor_vars, keep_vars)
-  if (length(dropped_vars) > 0) {
-    out <- bind_rows(out, data.frame(METHOD = method, Factor = dropped_vars, omega2 = NA_real_))
-  }
-  out
-}
-
-lower_omega2 <- bind_rows(lapply(
-  unique(results$METHOD), compute_omega2,
-  data = results, outcome_var = "LOWER_CORRECT", factor_vars = all_factor_vars
-)) %>% mutate(Order = "lower")
-higher_omega2 <- bind_rows(lapply(
-  unique(results$METHOD), compute_omega2,
-  data = results, outcome_var = "HIGHER_CORRECT", factor_vars = all_factor_vars
-)) %>% mutate(Order = "higher")
-
-# One row per Order x Factor x Method, sorted for easy lookup when reporting
-omega2_table <- bind_rows(lower_omega2, higher_omega2) %>%
-  mutate(
-    Order = factor(Order, levels = c("lower", "higher")),
-    Factor = factor(Factor, levels = factor_order),
-    METHOD = factor(METHOD, levels = c("prism", "lower_louvain", "max", "map", "paf", "pca", "vss1", "vss2"))
-  ) %>%
-  arrange(Order, Factor, METHOD)
-
-omega2_table %>% as.data.frame() %>%
-  filter(omega2 >= 0.06) %>% print(digits = 2)
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Figure 5: Effect of Factors and Sample Size ----
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-
-# Restrict to second order only for Figure 5
-condition_summary_higher <- condition_summary %>%
-  filter(Order == "higher")
-
-# Set methods
-condition_summary_higher <- condition_summary_higher %>%
-  filter(METHOD %in% c("lower_louvain", "prism", "paf", "pca"))
-
-# Factor the methods
-condition_summary_higher$METHOD <- factor(
-  condition_summary_higher$METHOD,
-  levels = c("prism", "lower_louvain", "paf", "pca")
-)
-
-# Figure 5 (Second Order Accuracy and Omega Index only)
-figure5 <- ggplot(
-  data = condition_summary_higher,
-  aes(x = N, y = value, group = METHOD)
-) +
-  facet_grid(
-    rows = vars(Metric), cols = vars(HighF, LowF), switch = "y",
-    labeller = labeller(
-      Metric = as_labeller(c("correct" = "Accuracy", "ari" = "omega"),
-                           default = label_parsed),
-      LowF = c(
-        "3" = "First = 3",
-        "5" = "First = 5"
-      ),
-      HighF = c(
-        "1" = "Second = 1",
-        "2" = "Second = 2",
-        "4" = "Second = 4",
-        "6" = "Second = 6"
-      )
-    )
-  ) +
-  geom_hline(yintercept = seq(0, 1, 0.25), linewidth = 0.3, color = "lightgrey") +
-  geom_line(
-    aes(color = METHOD), position = position_dodge(0.9),
-    linewidth = 0.5, alpha = 0.5
-  ) +
-  geom_point(
-    aes(fill = METHOD), position = position_dodge(0.9),
-    size = 2, shape = 21, stroke = 0.25, color = "white"
-  ) +
-  scale_color_manual(name = "Method", labels = LABELS, values = COLORS) +
-  scale_fill_manual(name = "Method", labels = LABELS, values = COLORS) +
-  scale_y_continuous(
-    limits = c(0.00, 1.05),
-    breaks = seq(0.00, 1.00, 0.25),
-    labels = EGAnet:::format_decimal(seq(0.00, 1.00, 0.25), 2),
-    expand = c(0, 0),
-    position = "right"
-  ) +
-  labs(x = "Sample Size", y = "Second Order\nAccuracy") +
-  theme(
-    panel.background = element_blank(),
-    panel.spacing.y = unit(0.5, "cm"),
-    axis.line = element_line(linewidth = 0.3, color = "black"),
-    axis.line.y = element_blank(),
-    axis.ticks = element_line(linewidth = 0.3),
-    axis.ticks.y = element_blank(),
-    axis.title = element_text(size = 10),
-    axis.title.y.right = element_text(angle = 0, vjust = 0.5),
-    axis.text = element_text(size = 8),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    strip.background = element_rect(color = "black", fill = "white", linewidth = 0.3),
-    strip.text = element_text(size = 8),
-    legend.title = element_text(size = 10, hjust = 0.5),
-    legend.text = element_text(size = 8),
-    legend.position = "bottom",
-    legend.title.position = "bottom"
-  ); figure5
-
-# Save plot
-ggsave(
-  figure5, filename = "./figures/figure5.pdf",
-  height = 6, width = 10, bg = "white"
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
