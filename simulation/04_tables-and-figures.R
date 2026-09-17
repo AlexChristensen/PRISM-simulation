@@ -6,7 +6,7 @@
 dir.create("./figures")
 
 # Load packages
-library(ggplot2); library(ggpubr); library(tidyverse)
+library(ggplot2); library(ggpubr); library(tidyverse); library(effectsize)
 
 # Load data
 load("./results.RData")
@@ -19,20 +19,20 @@ load("./results.RData")
 COLORS <- c(
   "prism" = "#f35b04",
   "lower_louvain" = "#fca311",
-  "map" = "#e56b6f",
   "max" = "#b56576",
+  "map" = "#e56b6f",
   "pca" = "#7cb518",
   "paf" = "#5c8001",
-  "vss1" = "#4caec2",
-  "vss2" = "#526a98"
+  "vss1" = "#526a98",
+  "vss2" = "#4caec2"
 )
 
 # Set labels
 LABELS <- c(
-  "prism" = "Louvain PRISM",
-  "lower_louvain" = "Louvain Lower Order",
-  "map" = "Maximum A Posteriori",
+  "prism" = "PRISM",
+  "lower_louvain" = "Lower Order Louvain",
   "max" = "Max Loading",
+  "map" = "Maximum A Posteriori",
   "paf" = "Parallel Analysis (PAF)",
   "pca" = "Parallel Analysis (PCA)",
   "vss1" = "Very Simple Structure 1",
@@ -53,7 +53,7 @@ results %>%
   ) %>% as.data.frame() %>% print(digits = 3)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Figure 1: Effect of Factors and Sample Size ----
+#### Figure 3: Effect of Factors and Sample Size ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
 # Set up summary
@@ -88,12 +88,12 @@ condition_summary_lower$METHOD <- factor(
   condition_summary_lower$METHOD,
   levels = c(
     "prism", "lower_louvain",
-    "map", "max", "paf", "pca",
+    "max", "map", "paf", "pca",
     "vss1", "vss2"
   )
 )
 
-# Figure 1 (First Order Accuracy and Omega Index only)
+# Figure 3 (First Order Accuracy and Omega Index only)
 figure3 <- ggplot(
   data = condition_summary_lower,
   aes(x = N, y = value, group = METHOD)
@@ -101,7 +101,8 @@ figure3 <- ggplot(
   facet_grid(
     rows = vars(Metric), cols = vars(HighF, LowF), switch = "y",
     labeller = labeller(
-      Metric = c("correct" = "Accuracy", "ari" = "Omega Index"),
+      Metric = as_labeller(c("correct" = "Accuracy", "ari" = "omega"),
+                           default = label_parsed),
       LowF = c(
         "3" = "First = 3",
         "5" = "First = 5"
@@ -132,7 +133,7 @@ figure3 <- ggplot(
     expand = c(0, 0),
     position = "right"
   ) +
-  labs(x = "Sample Size", y = "Lower Order\nAccuracy") +
+  labs(x = "Sample Size", y = "First Order\nAccuracy") +
   theme(
     panel.background = element_blank(),
     panel.spacing.y = unit(0.5, "cm"),
@@ -159,12 +160,12 @@ ggsave(
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Figure 2: Worst and Best Accuracy by Condition ----
+#### Figure 4: Worst and Best Accuracy by Condition ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
 # Set factor labels
 FACTOR_LABELS <- c(
-  LowV = "Variables per lower factor", LowF = "Lower factors per higher factor",
+  LowV = "Variables per first order factor", LowF = "First order factors\nper second order factor",
   LowL = "First order loading size", HighF = "Number of second order factors",
   HighL = "Second order loading size", HighC = "Second order factor correlation",
   N = "Sample size", SKEW = "Skew", Overlap = "Overlap present", Error = "Population error"
@@ -205,7 +206,7 @@ effects$Order <- factor(effects$Order, levels = c("lower", "higher"))
 # Offset methods vertically so dumbbells don't overlap
 METHOD_OFFSET <- setNames(
   seq(0.42, -0.42, length.out = 8),
-  c("prism", "lower_louvain", "pca", "paf", "map", "max", "vss1", "vss2")
+  c("prism", "lower_louvain", "max", "map", "paf", "pca", "vss1", "vss2")
 )
 effects$y <- as.numeric(effects$Factor) + METHOD_OFFSET[as.character(effects$METHOD)]
 
@@ -218,10 +219,10 @@ row_bands <- data.frame(y_pos = y_breaks) %>% filter(y_pos %% 2 == 0)
 # Set methods factor
 effects$METHOD <- factor(
   effects$METHOD,
-  levels = c("lower_louvain", "prism", "pca", "paf", "map", "max", "vss1", "vss2")
+  levels = c("prism", "lower_louvain", "max", "map", "paf", "pca", "vss1", "vss2")
 )
 
-# Figure 2
+# Figure 4
 figure4 <- ggplot(effects) +
   facet_grid(
     cols = vars(Order),
@@ -290,11 +291,82 @@ ggsave(
   height = 8, width = 12, bg = "white"
 )
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
+#### Supplementary Analysis: Omega-Squared Effect Sizes for Figure 4 ----
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
+
+# Break down by main effects
+anova_results <- results %>%
+  group_by(METHOD, N, SKEW, LowV, LowL, LowF, HighL, HighF, HighC, Overlap, Error) %>%
+  summarize(
+    lower_correct_mean = mean(LOWER_CORRECT, na.rm = TRUE),
+    lower_ari_mean = mean(lower_ari, na.rm = TRUE),
+    lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE)
+  ) %>% as.data.frame()
+
+t(
+  latentFactoR:::effect_table(
+    formula = lower_correct_mean ~ N + SKEW + LowV + LowL + LowF + HighL + HighF + HighC + Overlap + Error, data = anova_results, method= "METHOD", type = "II", minimum_effect = "large"
+  )
+)
+
+
+# For each method, fit one main-effects-only ANOVA per order (all ten design
+# factors as predictors, no interactions) and pull each factor's partial
+# omega-squared as its ANOVA effect size, for reporting in text. This is the
+# classic ANOVA omega-squared effect-size statistic -- unrelated to the
+# omega INDEX metric used elsewhere in this script. Not plotted; run this
+# chunk directly in R and inspect/report the values as needed.
+compute_omega2 <- function(method, data, outcome_var, factor_vars) {
+  d <- data[data$METHOD == method & !is.na(data[[outcome_var]]), c(outcome_var, factor_vars)]
+
+  # Some methods never produce a higher order estimate (e.g. MAP), leaving
+  # nothing to fit -- report their effect sizes as missing rather than error
+  if (nrow(d) == 0) return(data.frame(METHOD = method, Factor = factor_vars, omega2 = NA_real_))
+
+  d[[outcome_var]] <- as.numeric(d[[outcome_var]])
+  d[factor_vars] <- lapply(d[factor_vars], factor)
+
+  # A factor can end up constant after subsetting to this method/outcome;
+  # drop it from the model and report it as missing
+  keep_vars <- factor_vars[sapply(d[factor_vars], nlevels) >= 2]
+  model <- aov(as.formula(paste(outcome_var, "~", paste(keep_vars, collapse = " + "))), data = d)
+  om <- as.data.frame(effectsize::omega_squared(model, partial = TRUE))
+
+  out <- data.frame(METHOD = method, Factor = om$Parameter, omega2 = om$Omega2_partial)
+  dropped_vars <- setdiff(factor_vars, keep_vars)
+  if (length(dropped_vars) > 0) {
+    out <- bind_rows(out, data.frame(METHOD = method, Factor = dropped_vars, omega2 = NA_real_))
+  }
+  out
+}
+
+lower_omega2 <- bind_rows(lapply(
+  unique(results$METHOD), compute_omega2,
+  data = results, outcome_var = "LOWER_CORRECT", factor_vars = all_factor_vars
+)) %>% mutate(Order = "lower")
+higher_omega2 <- bind_rows(lapply(
+  unique(results$METHOD), compute_omega2,
+  data = results, outcome_var = "HIGHER_CORRECT", factor_vars = all_factor_vars
+)) %>% mutate(Order = "higher")
+
+# One row per Order x Factor x Method, sorted for easy lookup when reporting
+omega2_table <- bind_rows(lower_omega2, higher_omega2) %>%
+  mutate(
+    Order = factor(Order, levels = c("lower", "higher")),
+    Factor = factor(Factor, levels = factor_order),
+    METHOD = factor(METHOD, levels = c("prism", "lower_louvain", "max", "map", "paf", "pca", "vss1", "vss2"))
+  ) %>%
+  arrange(Order, Factor, METHOD)
+
+omega2_table %>% as.data.frame() %>%
+  filter(omega2 >= 0.06) %>% print(digits = 2)
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Figure 3: Effect of Factors and Sample Size ----
+#### Figure 5: Effect of Factors and Sample Size ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
-# Restrict to second order only for Figure 3
+# Restrict to second order only for Figure 5
 condition_summary_higher <- condition_summary %>%
   filter(Order == "higher")
 
@@ -308,7 +380,7 @@ condition_summary_higher$METHOD <- factor(
   levels = c("prism", "lower_louvain", "paf", "pca")
 )
 
-# Figure 3 (Second Order Accuracy and Omega Index only)
+# Figure 5 (Second Order Accuracy and Omega Index only)
 figure5 <- ggplot(
   data = condition_summary_higher,
   aes(x = N, y = value, group = METHOD)
@@ -316,7 +388,8 @@ figure5 <- ggplot(
   facet_grid(
     rows = vars(Metric), cols = vars(HighF, LowF), switch = "y",
     labeller = labeller(
-      Metric = c("correct" = "Accuracy", "ari" = "Omega Index"),
+      Metric = as_labeller(c("correct" = "Accuracy", "ari" = "omega"),
+                           default = label_parsed),
       LowF = c(
         "3" = "First = 3",
         "5" = "First = 5"
@@ -347,7 +420,7 @@ figure5 <- ggplot(
     expand = c(0, 0),
     position = "right"
   ) +
-  labs(x = "Sample Size", y = "Higher Order\nAccuracy") +
+  labs(x = "Sample Size", y = "Second Order\nAccuracy") +
   theme(
     panel.background = element_blank(),
     panel.spacing.y = unit(0.5, "cm"),
@@ -374,7 +447,7 @@ ggsave(
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Figure 4: Most Challenging Conditions ----
+#### Figure 6: Most Challenging Conditions ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
 # Flag the four conditions that, together, collapse first-order recovery:
@@ -402,9 +475,9 @@ adverse_subsets <- c(
 CONDITION_LABELS <- c(
   None = "All Other Conditions",
   O = "Overlap (O) = Present",
-  V = "First Variables (V) = 5",
-  F = "First Loading (F) = 0.50",
-  S = "Second Loading (S) = 0.70"
+  V = "First Order Variables (V) = 5",
+  F = "First Order Loadings (F) = 0.50",
+  S = "Second Order Loadings (S) = 0.70"
 )
 
 # A "pure" cell: the named factors are adverse AND every other factor is at
@@ -434,7 +507,7 @@ other_results <- results[results$N != 10000, ]
 results_10k <- results[results$N == 10000, ]
 
 # Restrict to the four focal methods for this figure
-STORM_METHODS <- c("lower_louvain", "prism", "paf", "pca")
+STORM_METHODS <- c("prism", "lower_louvain", "paf", "pca")
 other_results_storm <- other_results %>% filter(METHOD %in% STORM_METHODS)
 results_10k_storm <- results_10k %>% filter(METHOD %in% STORM_METHODS)
 
@@ -460,24 +533,29 @@ storm_data <- bind_rows(
 # panels share this order so they stay directly comparable
 FOCAL_METHOD <- "prism"
 
-subset_order <- storm_data %>%
-  filter(METHOD == FOCAL_METHOD, panel == "Sample Size = 10,000", Order == "lower") %>%
-  select(subset_label, subset_size, focal_acc = accuracy) %>%
-  arrange(subset_size, desc(focal_acc)) %>%
-  mutate(y_base = row_number())
+# Fixed condition-combination order (replaces the focal-accuracy sort)
+subset_label_order <- c(
+  "None", "O", "V", "F", "S", "OV", "OF", "OS",
+  "VF", "VS", "FS", "OVF", "OVS", "OFS", "VFS", "OVFS"
+)
+
+subset_order <- data.frame(
+  subset_label = subset_label_order,
+  subset_size  = ifelse(subset_label_order == "None", 0L, nchar(subset_label_order)),
+  y_base       = seq_along(subset_label_order)
+)
 
 y_lookup <- setNames(subset_order$y_base, subset_order$subset_label)
-subset_order_sorted <- subset_order[order(subset_order$y_base), ]
 y_labels_ordered <- ifelse(
-  subset_order_sorted$subset_size <= 1,
-  CONDITION_LABELS[subset_order_sorted$subset_label],
-  subset_order_sorted$subset_label
+  subset_order$subset_size <= 1,
+  CONDITION_LABELS[subset_order$subset_label],
+  subset_order$subset_label
 )
 
 storm_data$y_base <- y_lookup[storm_data$subset_label]
 
 # Offset the four focal methods symmetrically around each category's
-# base y-position; kept as a separate object so Figure 2's layout is untouched
+# base y-position; kept as a separate object so Figure 4's layout is untouched
 METHOD_OFFSET_FIG3 <- setNames(
   seq(0.3, -0.3, length.out = 4),
   STORM_METHODS
@@ -500,7 +578,7 @@ subset_bounds <- storm_data %>%
 shaded_bounds <- subset_bounds %>% filter(subset_size %in% c(1, 3))
 
 # One order's storm plot (the two sample-size panels, stacked); shared
-# between the first- and second-order halves of Figure 4 so they read
+# between the first- and second-order halves of Figure 6 so they read
 # identically before being stacked via ggarrange
 build_storm_plot <- function(order_label, x_lab, show_x_axis = TRUE) {
   ggplot() +
@@ -550,6 +628,7 @@ build_storm_plot <- function(order_label, x_lab, show_x_axis = TRUE) {
       legend.title = element_text(size = 12, hjust = 0.5),
       legend.text = element_text(size = 10),
       legend.position = "bottom",
+      legend.title.position = "top",
       legend.key.width = unit(1, "cm")
     ) +
     if (!show_x_axis) {
