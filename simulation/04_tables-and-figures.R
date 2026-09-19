@@ -6,10 +6,49 @@
 dir.create("./figures")
 
 # Load packages
-library(ggplot2); library(ggpubr); library(tidyverse); library(effectsize)
+library(ggplot2); library(ggpubr); library(gridtext); library(tidyverse)
 
 # Load data
 load("./results.RData")
+
+# Check max loading correct depth to search
+## Set range to search
+search_methods <- results[!(results$METHOD %in% c("prism", "lower_louvain", "max")),]
+search_length <- dim(search_methods)[1]
+start_sequence <- seq(1, search_length, 5)
+end_sequence <- seq(5, search_length, 5)
+
+## Set number of lower order factors
+lower_order <- search_methods$LowF * search_methods$HighF
+
+## Update lower order
+lower_order <- lower_order[start_sequence]
+
+## Initialize low end and high end
+high_end <- low_end <- numeric(length(start_sequence))
+
+# Total variables
+total_variables <- search_methods$LowV * search_methods$LowF * search_methods$HighF
+
+## Update total variables
+total_variables <- total_variables[start_sequence]
+
+## Populate low end and high end
+for(i in seq_along(start_sequence)){
+
+  ## Set values
+  low_end[i] <- max(
+    1, min(search_methods$lower_dimensions[start_sequence[i]:end_sequence[i]]) - 2
+  )
+  high_end[i] <- min(
+    total_variables[i], max(search_methods$lower_dimensions[start_sequence[i]:end_sequence[i]]) + 2
+  )
+
+}
+
+# Check for truth in range
+max_range <- (lower_order <= high_end) & (lower_order >= low_end)
+mean(max_range)
 
 #%%%%%%%%%%%%%%%%%%%%#
 #### Figure Theme ----
@@ -44,13 +83,25 @@ LABELS <- c(
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
 # Break down by method and correlation
-results %>%
+full_results <- results %>%
   group_by(METHOD, Overlap, Error, SKEW) %>%
   summarize(
     lower_correct_mean = mean(LOWER_CORRECT, na.rm = TRUE),
     lower_ari_mean = mean(lower_ari, na.rm = TRUE),
     lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE)
   ) %>% as.data.frame() %>% print(digits = 3)
+
+# Check on max range
+max_results <- results[max_range,] %>%
+  group_by(METHOD, Overlap, Error, SKEW) %>%
+  summarize(
+    lower_correct_mean = mean(LOWER_CORRECT, na.rm = TRUE),
+    lower_ari_mean = mean(lower_ari, na.rm = TRUE),
+    lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE)
+  ) %>% as.data.frame()
+
+# Compare differences
+full_results[full_results$METHOD == "max",-c(1:4)] - max_results[max_results$METHOD == "max",-c(1:4)]
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 #### Figure 3: Effect of Factors and Sample Size ----
@@ -104,14 +155,14 @@ figure3 <- ggplot(
       Metric = as_labeller(c("correct" = "Accuracy", "ari" = "omega"),
                            default = label_parsed),
       LowF = c(
-        "3" = "First = 3",
-        "5" = "First = 5"
+        "3" = "First Order = 3",
+        "5" = "First Order = 5"
       ),
       HighF = c(
-        "1" = "Second = 1",
-        "2" = "Second = 2",
-        "4" = "Second = 4",
-        "6" = "Second = 6"
+        "1" = "Second Order = 1",
+        "2" = "Second Order = 2",
+        "4" = "Second Order = 4",
+        "6" = "Second Order = 6"
       )
     )
   ) +
@@ -133,22 +184,23 @@ figure3 <- ggplot(
     expand = c(0, 0),
     position = "right"
   ) +
-  labs(x = "Sample Size", y = "First Order\nAccuracy") +
+  labs(x = "Sample Size", title = "First Order Accuracy") +
   theme(
     panel.background = element_blank(),
     panel.spacing.y = unit(0.5, "cm"),
+    plot.title = element_text(family = "ubuntu", size = 12, face = "bold", hjust = 0.5),
     axis.line = element_line(linewidth = 0.3, color = "black"),
     axis.line.y = element_blank(),
     axis.ticks = element_line(linewidth = 0.3),
     axis.ticks.y = element_blank(),
-    axis.title = element_text(size = 10),
-    axis.title.y.right = element_text(angle = 0, vjust = 0.5),
-    axis.text = element_text(size = 8),
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title = element_text(family = "ubuntu", size = 10),
+    axis.title.y = element_blank(),
+    axis.text = element_text(family = "ubuntu", size = 8),
+    axis.text.x = element_text(family = "ubuntu", angle = 45, hjust = 1),
     strip.background = element_rect(color = "black", fill = "white", linewidth = 0.3),
-    strip.text = element_text(size = 8),
-    legend.title = element_text(size = 10, hjust = 0.5),
-    legend.text = element_text(size = 8),
+    strip.text = element_text(family = "ubuntu", size = 8),
+    legend.title = element_text(family = "ubuntu", size = 10, hjust = 0.5),
+    legend.text = element_text(family = "ubuntu", size = 8),
     legend.position = "bottom",
     legend.title.position = "bottom"
   ); figure3
@@ -156,7 +208,7 @@ figure3 <- ggplot(
 # Save plot
 ggsave(
   figure3, filename = "./figures/figure3.pdf",
-  height = 6, width = 10, bg = "white"
+  height = 6, width = 10, bg = "white", device = cairo_pdf
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
@@ -188,14 +240,14 @@ figure4 <- ggplot(
       Metric = as_labeller(c("correct" = "Accuracy", "ari" = "omega"),
                            default = label_parsed),
       LowF = c(
-        "3" = "First = 3",
-        "5" = "First = 5"
+        "3" = "First Order = 3",
+        "5" = "First Order = 5"
       ),
       HighF = c(
-        "1" = "Second = 1",
-        "2" = "Second = 2",
-        "4" = "Second = 4",
-        "6" = "Second = 6"
+        "1" = "Second Order = 1",
+        "2" = "Second Order = 2",
+        "4" = "Second Order = 4",
+        "6" = "Second Order = 6"
       )
     )
   ) +
@@ -217,22 +269,23 @@ figure4 <- ggplot(
     expand = c(0, 0),
     position = "right"
   ) +
-  labs(x = "Sample Size", y = "Second Order\nAccuracy") +
+  labs(x = "Sample Size", title = "Second Order Accuracy") +
   theme(
     panel.background = element_blank(),
     panel.spacing.y = unit(0.5, "cm"),
+    plot.title = element_text(family = "ubuntu", size = 12, face = "bold", hjust = 0.5),
     axis.line = element_line(linewidth = 0.3, color = "black"),
     axis.line.y = element_blank(),
     axis.ticks = element_line(linewidth = 0.3),
     axis.ticks.y = element_blank(),
-    axis.title = element_text(size = 10),
-    axis.title.y.right = element_text(angle = 0, vjust = 0.5),
-    axis.text = element_text(size = 8),
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.title = element_text(family = "ubuntu", size = 10),
+    axis.title.y = element_blank(),
+    axis.text = element_text(family = "ubuntu", size = 8),
+    axis.text.x = element_text(family = "ubuntu", angle = 45, hjust = 1),
     strip.background = element_rect(color = "black", fill = "white", linewidth = 0.3),
-    strip.text = element_text(size = 8),
-    legend.title = element_text(size = 10, hjust = 0.5),
-    legend.text = element_text(size = 8),
+    strip.text = element_text(family = "ubuntu", size = 8),
+    legend.title = element_text(family = "ubuntu", size = 10, hjust = 0.5),
+    legend.text = element_text(family = "ubuntu", size = 8),
     legend.position = "bottom",
     legend.title.position = "bottom"
   ); figure4
@@ -240,7 +293,7 @@ figure4 <- ggplot(
 # Save plot
 ggsave(
   figure4, filename = "./figures/figure4.pdf",
-  height = 6, width = 10, bg = "white"
+  height = 6, width = 10, bg = "white", device = cairo_pdf
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
@@ -252,7 +305,7 @@ FACTOR_LABELS <- c(
   LowV = "Variables per first order factor", LowF = "First order factors\nper second order factor",
   LowL = "First order loading size", HighF = "Number of second order factors",
   HighL = "Second order loading size", HighC = "Second order factor correlation",
-  N = "Sample size", SKEW = "Skew", Overlap = "Overlap present", Error = "Population error"
+  N = "Sample size", SKEW = "Skew", Overlap = "Overlapping items", Error = "Population error"
 )
 
 # For each design factor, get the range (worst level to best level) per method
@@ -310,7 +363,7 @@ effects$METHOD <- factor(
 figure5 <- ggplot(effects) +
   facet_grid(
     cols = vars(Order),
-    labeller = labeller(Order = c("lower" = "First Order", "higher" = "Second Order"))
+    labeller = labeller(Order = c("lower" = "First Order Accuracy", "higher" = "Second Order Accuracy"))
   ) +
   geom_rect(
     data = row_bands,
@@ -349,19 +402,19 @@ figure5 <- ggplot(effects) +
     labels = EGAnet:::format_decimal(seq(0.00, 1.00, 0.10), 2),
     expand = c(0, 0)
   ) +
-  labs(x = "Accuracy") +
   theme(
     panel.background = element_blank(),
     panel.spacing.x = unit(0.75, "cm"),
     axis.line = element_line(linewidth = 0.3, color = "black"),
     axis.ticks = element_line(linewidth = 0.3),
-    axis.title = element_text(size = 14),
+    axis.title = element_text(family = "ubuntu", size = 14),
+    axis.title.x = element_blank(),
     axis.title.y = element_blank(),
-    axis.text = element_text(size = 12),
+    axis.text = element_text(family = "ubuntu", size = 12),
     strip.background = element_rect(color = "black", fill = "white", linewidth = 0.3),
-    strip.text = element_text(size = 12),
-    legend.title = element_text(size = 12, hjust = 0.5),
-    legend.text = element_text(size = 10),
+    strip.text = element_text(family = "ubuntu", size = 12),
+    legend.title = element_text(family = "ubuntu", size = 12, hjust = 0.5),
+    legend.text = element_text(family = "ubuntu", size = 10),
     legend.position = "bottom",
     legend.title.position = "left",
     legend.box = "vertical",
@@ -372,26 +425,7 @@ figure5 <- ggplot(effects) +
 # Save plot
 ggsave(
   figure5, filename = "./figures/figure5.pdf",
-  height = 8, width = 12, bg = "white"
-)
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-#### Supplementary Analysis: Omega-Squared Effect Sizes for Figure 5 ----
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
-
-# Break down by main effects
-anova_results <- results %>%
-  group_by(METHOD, N, SKEW, LowV, LowL, LowF, HighL, HighF, HighC, Overlap, Error) %>%
-  summarize(
-    lower_correct_mean = mean(LOWER_CORRECT, na.rm = TRUE),
-    lower_ari_mean = mean(lower_ari, na.rm = TRUE),
-    lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE)
-  ) %>% as.data.frame()
-
-t(
-  latentFactoR:::effect_table(
-    formula = lower_correct_mean ~ N + SKEW + LowV + LowL + LowF + HighL + HighF + HighC + Overlap + Error, data = anova_results, method= "METHOD", type = "II", minimum_effect = "large"
-  )
+  height = 8, width = 12, bg = "white", device = cairo_pdf
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
@@ -421,11 +455,11 @@ adverse_subsets <- c(
 
 # Spell out the single-condition (and "None") labels; combos stay as letter codes
 CONDITION_LABELS <- c(
-  None = "All Other Conditions",
-  O = "Overlap (O) = Present",
-  V = "First Order Variables (V) = 5",
-  F = "First Order Loadings (F) = 0.50",
-  S = "Second Order Loadings (S) = 0.70"
+  None = "All Other\nConditions",
+  O = "O", # Overlap (O) = Present",
+  V = "V", # "First Order Variables (V) = 5",
+  F = "F", # "First Order Loadings (F) = 0.50",
+  S = "S" # "Second Order Loadings (S) = 0.70"
 )
 
 # A "pure" cell: the named factors are adverse AND every other factor is at
@@ -505,7 +539,7 @@ storm_data$y_base <- y_lookup[storm_data$subset_label]
 # Offset the four focal methods symmetrically around each category's
 # base y-position; kept as a separate object so Figure 4's layout is untouched
 METHOD_OFFSET_FIG3 <- setNames(
-  seq(0.3, -0.3, length.out = 4),
+  seq(-0.2, 0.2, length.out = 4),
   STORM_METHODS
 )
 storm_data$y <- storm_data$y_base + METHOD_OFFSET_FIG3[as.character(storm_data$METHOD)]
@@ -557,7 +591,7 @@ build_storm_plot <- function(order_label, x_lab, show_x_axis = TRUE) {
     ) +
     scale_y_continuous(breaks = seq_along(y_labels_ordered), labels = y_labels_ordered, expand = expansion(add = 0.7)) +
     scale_x_continuous(
-      limits = c(0.00, 1.025), breaks = seq(0.00, 1.00, 0.25),
+      limits = c(0.00, 1.05), breaks = seq(0.00, 1.00, 0.25),
       labels = EGAnet:::format_decimal(seq(0.00, 1.00, 0.25), 2),
       expand = c(0, 0)
     ) +
@@ -568,15 +602,15 @@ build_storm_plot <- function(order_label, x_lab, show_x_axis = TRUE) {
       panel.spacing.y = unit(0.75, "cm"),
       axis.line = element_line(linewidth = 0.3, color = "black"),
       axis.ticks = element_line(linewidth = 0.3),
-      axis.title = element_text(size = 12),
-      axis.text = element_text(size = 10),
-      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.title = element_text(family = "ubuntu", size = 12),
+      axis.text = element_text(family = "ubuntu", size = 10),
+      # axis.text.x = element_text(angle = 45, hjust = 1),
       strip.background = element_rect(color = "black", fill = "white", linewidth = 0.3),
-      strip.text = element_text(size = 10),
-      legend.title = element_text(size = 12, hjust = 0.5),
-      legend.text = element_text(size = 10),
+      strip.text = element_text(family = "ubuntu", size = 10),
+      legend.title = element_text(family = "ubuntu", size = 12, hjust = 0.5),
+      legend.text = element_text(family = "ubuntu", size = 10),
       legend.position = "bottom",
-      legend.title.position = "top",
+      legend.title.position = "bottom",
       legend.key.width = unit(1, "cm")
     ) +
     if (!show_x_axis) {
@@ -598,16 +632,26 @@ figure6_higher <- build_storm_plot("higher", "Second Order Accuracy")
 # single shared legend
 figure6 <- ggarrange(
   figure6_lower, figure6_higher,
-  ncol = 1, nrow = 2, heights = c(0.90, 1.10),
+  ncol = 1, nrow = 2, heights = c(0.95, 1.075),
   common.legend = TRUE, legend = "bottom"
 )
 figure6 <- annotate_figure(
   figure6,
-  top = text_grob("Most Challenging Condition Combinations", face = "bold", size = 14)
+  top = text_grob(
+    "Overlapping Items | Variables per First Order Factor = 5 | First Order Loadings = 0.50 | Second Order Loadings = 0.70",
+    size = 12, hjust = 0.50, color = "grey60"
+  )
+)
+figure6 <- annotate_figure(
+  figure6,
+  top = text_grob(
+    "Most Challenging Condition Combinations",
+    face = "bold", size = 14, hjust = 1.08
+  )
 ); figure6
 
 # Save plot
 ggsave(
   figure6, filename = "./figures/figure6.pdf",
-  height = 10, width = 10, bg = "white"
+  height = 9, width = 10, bg = "white", device = cairo_pdf
 )
