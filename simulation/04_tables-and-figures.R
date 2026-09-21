@@ -6,7 +6,7 @@
 dir.create("./figures")
 
 # Load packages
-library(ggplot2); library(ggpubr); library(gridtext); library(tidyverse)
+library(ggplot2); library(ggpubr); library(tidyverse)
 
 # Load data
 load("./results.RData")
@@ -431,6 +431,18 @@ ggsave(
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 #### Figure 6: Most Challenging Conditions ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
+
+# Evaluate what's happening with PRISM
+results %>%
+  filter(METHOD == "prism", N == 10000) %>%
+  group_by(METHOD, Overlap, LowV, LowF, LowL, HighF, HighL, HighC) %>%
+  summarize(
+    lower_acc = mean(LOWER_CORRECT),
+    lower_mbe = mean(LOWER_MBE)
+  ) %>%
+  filter(lower_acc < 0.80) %>%
+  as.data.frame()
+
 
 # Flag the four conditions that, together, collapse first-order recovery:
 # cross-loadings present (O), few indicators per factor (V), weak first-order
