@@ -52,7 +52,7 @@ n_digits <- latentFactoR:::digits(n_conditions) - 1
 FILES <- list.files("./conditions/")
 
 # Loop over conditions
-for(i in 84){# seq_along(FILES)){
+for(i in seq_along(FILES)){
 
   # Obtain condition
   condition <- conditions[i,]
