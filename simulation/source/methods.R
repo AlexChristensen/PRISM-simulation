@@ -99,7 +99,7 @@ parallel_analysis <- function(data, corr, n.iter = 20, quant = 0.95)
   PCA_empirical <- eigen(R_empirical, symmetric = TRUE, only.values = TRUE)$values
 
   # Compute SMC
-  diag(R_empirical) <- SMC(R_empirical)
+  diag(R_empirical) <- psych::smc(R_empirical)
 
   # Obtain PAF empirical eigenvalues
   PAF_empirical <- eigen(R_empirical, symmetric = TRUE, only.values = TRUE)$values
@@ -117,7 +117,7 @@ parallel_analysis <- function(data, corr, n.iter = 20, quant = 0.95)
     PCA_shuffled <- eigen(R_shuffled, symmetric = TRUE, only.values = TRUE)$values
 
     # Compute SMC
-    diag(R_shuffled) <- SMC(R_shuffled)
+    diag(R_shuffled) <- psych::smc(R_shuffled)
 
     # Return eigenvalues
     return(list(
