@@ -103,6 +103,7 @@ for(n in N){
         # Obtain extreme results
         extreme_results <- obtain_results(extreme_data, condition_structure, condition_df, n)
         extreme_results$SKEW <- "extreme"
+        extreme_results$Replicate <- j
         extreme_results$LOWER_CORRECT <- extreme_results$lower_dimensions == lower_factors
         extreme_results$LOWER_MBE <- extreme_results$lower_dimensions - lower_factors
         extreme_results$HIGHER_CORRECT <- extreme_results$higher_dimensions == condition$HighF
@@ -114,6 +115,7 @@ for(n in N){
         # Obtain moderate results
         moderate_results <- obtain_results(moderate_data, condition_structure, condition_df, n)
         moderate_results$SKEW <- "moderate"
+        moderate_results$Replicate <- j
         moderate_results$LOWER_CORRECT <- moderate_results$lower_dimensions == lower_factors
         moderate_results$LOWER_MBE <- moderate_results$lower_dimensions - lower_factors
         moderate_results$HIGHER_CORRECT <- moderate_results$higher_dimensions == condition$HighF

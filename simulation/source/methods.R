@@ -26,33 +26,6 @@ polychoric <- function(data)
 # Compile function
 polychoric <- cmpfun(polychoric)
 
-# SMC
-SMC <- function(R)
-{
-
-  # Obtain SmC
-  smc <- 1 - 1 / diag(solve(R))
-
-  # Set bound indices
-  greater <- smc > 1
-  less <- smc < 0
-
-  # Check bounds
-  if(any(greater)){
-    smc[greater] <- 1
-  }
-  if(any(less)){
-    smc[less] <- 0
-  }
-
-  # Return SMC
-  return(smc)
-
-}
-
-# Compile function
-SMC <- cmpfun(SMC)
-
 # Parallel Analysis
 parallel_analysis <- function(data, corr, n.iter = 20, quant = 0.95)
 {
