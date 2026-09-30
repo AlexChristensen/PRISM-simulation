@@ -58,24 +58,24 @@ mean(max_range)
 COLORS <- c(
   "prism" = "#f35b04",
   "lower_louvain" = "#fca311",
-  "max" = "#b56576",
-  "map" = "#e56b6f",
+  # "max" = "#b56576",
+  # "map" = "#e56b6f",
   "pca" = "#7cb518",
-  "paf" = "#5c8001",
-  "vss1" = "#526a98",
-  "vss2" = "#4caec2"
+  "paf" = "#5c8001"
+  # "vss1" = "#526a98",
+  # "vss2" = "#4caec2"
 )
 
 # Set labels
 LABELS <- c(
   "prism" = "PRISM",
   "lower_louvain" = "Lower Order Louvain",
-  "max" = "Max Loading",
-  "map" = "Maximum A Posteriori",
+  # "max" = "Max Loading",
+  # "map" = "Maximum A Posteriori",
   "paf" = "Parallel Analysis (PAF)",
-  "pca" = "Parallel Analysis (PCA)",
-  "vss1" = "Very Simple Structure 1",
-  "vss2" = "Very Simple Structure 2"
+  "pca" = "Parallel Analysis (PCA)"
+  # "vss1" = "Very Simple Structure 1",
+  # "vss2" = "Very Simple Structure 2"
 )
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
@@ -99,7 +99,7 @@ results %>%
     prop_under = mean(LOWER_MBE < 0),
     prop_over = mean(LOWER_MBE > 0),
     prop_correct = mean(LOWER_MBE == 0)
-  ) %>% as.data.frame()
+  ) %>% as.data.frame() %>% print(digits = 3)
 
 # Check on max range
 max_results <- results[max_range,] %>%
@@ -107,7 +107,8 @@ max_results <- results[max_range,] %>%
   summarize(
     lower_correct_mean = mean(LOWER_CORRECT, na.rm = TRUE),
     lower_ari_mean = mean(lower_ari, na.rm = TRUE),
-    lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE)
+    lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE),
+    lower_mae_mean = mean(abs(lower_dimensions - (LowF * HighF)))
   ) %>% as.data.frame()
 
 # Compare differences
@@ -116,6 +117,9 @@ full_results[full_results$METHOD == "max",-c(1:4)] - max_results[max_results$MET
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 #### Figure 3: Effect of Factors and Sample Size ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
+
+# Only include hierEGA and PA methods
+results <- results[results$METHOD %in% c("prism", "lower_louvain", "paf", "pca"),]
 
 # Set up summary
 condition_summary <- results %>%
@@ -178,12 +182,12 @@ figure3 <- ggplot(
   ) +
   geom_hline(yintercept = seq(0, 1, 0.25), linewidth = 0.3, color = "lightgrey") +
   geom_line(
-    aes(color = METHOD), position = position_dodge(0.9),
-    linewidth = 0.5, alpha = 0.5
+    aes(color = METHOD), position = position_dodge(0.5),
+    linewidth = 0.75, alpha = 0.5
   ) +
   geom_point(
-    aes(fill = METHOD), position = position_dodge(0.9),
-    size = 2, shape = 21, stroke = 0.25, color = "white"
+    aes(fill = METHOD), position = position_dodge(0.5),
+    size = 2.5, shape = 21, stroke = 0.25, color = "white"
   ) +
   scale_color_manual(name = "Method", labels = LABELS, values = COLORS) +
   scale_fill_manual(name = "Method", labels = LABELS, values = COLORS) +
@@ -198,7 +202,7 @@ figure3 <- ggplot(
   theme(
     panel.background = element_blank(),
     panel.spacing.y = unit(0.5, "cm"),
-    plot.title = element_text(family = "ubuntu", size = 12, face = "bold", hjust = 0.5),
+    plot.title = element_blank(), #  element_text(family = "ubuntu", size = 12, face = "bold", hjust = 0.5),
     axis.line = element_line(linewidth = 0.3, color = "black"),
     axis.line.y = element_blank(),
     axis.ticks = element_line(linewidth = 0.3),
@@ -263,12 +267,12 @@ figure4 <- ggplot(
   ) +
   geom_hline(yintercept = seq(0, 1, 0.25), linewidth = 0.3, color = "lightgrey") +
   geom_line(
-    aes(color = METHOD), position = position_dodge(0.9),
-    linewidth = 0.5, alpha = 0.5
+    aes(color = METHOD), position = position_dodge(0.5),
+    linewidth = 0.75, alpha = 0.5
   ) +
   geom_point(
-    aes(fill = METHOD), position = position_dodge(0.9),
-    size = 2, shape = 21, stroke = 0.25, color = "white"
+    aes(fill = METHOD), position = position_dodge(0.5),
+    size = 2.5, shape = 21, stroke = 0.25, color = "white"
   ) +
   scale_color_manual(name = "Method", labels = LABELS, values = COLORS) +
   scale_fill_manual(name = "Method", labels = LABELS, values = COLORS) +
@@ -283,7 +287,7 @@ figure4 <- ggplot(
   theme(
     panel.background = element_blank(),
     panel.spacing.y = unit(0.5, "cm"),
-    plot.title = element_text(family = "ubuntu", size = 12, face = "bold", hjust = 0.5),
+    plot.title = element_blank(), # element_text(family = "ubuntu", size = 12, face = "bold", hjust = 0.5),
     axis.line = element_line(linewidth = 0.3, color = "black"),
     axis.line.y = element_blank(),
     axis.ticks = element_line(linewidth = 0.3),
@@ -352,8 +356,11 @@ effects$Order <- factor(effects$Order, levels = c("lower", "higher"))
 
 # Offset methods vertically so dumbbells don't overlap
 METHOD_OFFSET <- setNames(
-  seq(0.42, -0.42, length.out = 8),
-  c("prism", "lower_louvain", "max", "map", "paf", "pca", "vss1", "vss2")
+  seq(0.30, -0.30, length.out = 4),
+  c(
+    "prism", "lower_louvain", # "max", "map",
+    "paf", "pca"# , "vss1", "vss2")
+  )
 )
 effects$y <- as.numeric(effects$Factor) + METHOD_OFFSET[as.character(effects$METHOD)]
 
@@ -366,7 +373,12 @@ row_bands <- data.frame(y_pos = y_breaks) %>% filter(y_pos %% 2 == 0)
 # Set methods factor
 effects$METHOD <- factor(
   effects$METHOD,
-  levels = c("prism", "lower_louvain", "max", "map", "paf", "pca", "vss1", "vss2")
+  levels = c(
+    "prism", "lower_louvain",
+    # "max", "map",
+    "paf", "pca"
+    # , "vss1", "vss2"
+  )
 )
 
 # Figure 5
@@ -383,10 +395,10 @@ figure5 <- ggplot(effects) +
   geom_vline(xintercept = seq(0.00, 1, 0.10), linewidth = 0.3, color = "lightgrey") +
   geom_segment(
     aes(x = low, xend = high, y = y, yend = y, color = METHOD),
-    linewidth = 0.75, alpha = 0.5, lineend = "round"
+    linewidth = 1, alpha = 0.5, lineend = "round"
   ) +
-  geom_point(aes(x = low, y = y, color = METHOD, shape = "Worst"), fill = "white", size = 2.5) +
-  geom_point(aes(x = high, y = y, fill = METHOD, shape = "Best"), color = "white", size = 2.5, stroke = 0.25) +
+  geom_point(aes(x = low, y = y, color = METHOD, shape = "Worst"), fill = "white", size = 2.75) +
+  geom_point(aes(x = high, y = y, fill = METHOD, shape = "Best"), color = "white", size = 2.75, stroke = 0.25) +
   scale_color_manual(
     name = "Method", labels = LABELS, values = COLORS,
     guide = guide_legend(order = 1, override.aes = list(shape = NA, alpha = 1))
@@ -404,11 +416,11 @@ figure5 <- ggplot(effects) +
     )
   ) +
   scale_y_continuous(
-    limits = c(0.25, 10.75),
+    limits = c(0.5, 10.5),
     breaks = y_breaks, labels = y_labels, expand = c(0,0)
   ) +
   scale_x_continuous(
-    limits = c(0.00, 1.025), breaks = seq(0.00, 1.00, 0.10),
+    limits = c(0.20, 1.025), breaks = seq(0.00, 1.00, 0.10),
     labels = EGAnet:::format_decimal(seq(0.00, 1.00, 0.10), 2),
     expand = c(0, 0)
   ) +
@@ -661,19 +673,20 @@ figure6 <- annotate_figure(
   figure6,
   top = text_grob(
     "Overlapping Items | Variables per First Order Factor = 5 | First Order Loadings = 0.50 | Second Order Loadings = 0.70",
-    size = 12, hjust = 0.50, color = "grey60"
+    size = 12, hjust = 0.50, color = "black"
   )
 )
-figure6 <- annotate_figure(
-  figure6,
-  top = text_grob(
-    "Most Challenging Condition Combinations",
-    face = "bold", size = 14, hjust = 1.08
-  )
-); figure6
+# figure6 <- annotate_figure(
+#   figure6,
+#   top = text_grob(
+#     "Most Challenging Condition Combinations",
+#     face = "bold", size = 14, hjust = 1.08
+#   )
+# ); figure6
 
 # Save plot
 ggsave(
   figure6, filename = "./figures/figure6.pdf",
   height = 9, width = 10, bg = "white", device = cairo_pdf
 )
+
