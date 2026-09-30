@@ -88,8 +88,18 @@ full_results <- results %>%
   summarize(
     lower_correct_mean = mean(LOWER_CORRECT, na.rm = TRUE),
     lower_ari_mean = mean(lower_ari, na.rm = TRUE),
-    lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE)
+    lower_mbe_mean = mean(LOWER_MBE, na.rm = TRUE),
+    lower_mae_mean = mean(abs(lower_dimensions - (LowF * HighF)))
   ) %>% as.data.frame() %>% print(digits = 3)
+
+# Results for underfactoring and overfactoring
+results %>%
+  group_by(METHOD) %>%
+  summarize(
+    prop_under = mean(LOWER_MBE < 0),
+    prop_over = mean(LOWER_MBE > 0),
+    prop_correct = mean(LOWER_MBE == 0)
+  ) %>% as.data.frame()
 
 # Check on max range
 max_results <- results[max_range,] %>%

@@ -54,7 +54,7 @@ FILES <- list.files("./conditions/")
 
 # Loop over sample sizes first so every condition (and condition structure)
 # finishes at the current N before moving on to the next N
-for(n in N){
+for(n in N[-1]){
 
   # Loop over conditions
   for(i in seq_along(FILES)){
