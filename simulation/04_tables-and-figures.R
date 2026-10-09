@@ -381,6 +381,10 @@ effects$METHOD <- factor(
   )
 )
 
+# Compute differences
+effects$differences <- effects$high - effects$low
+effects <- effects[order(effects$METHOD, effects$Order, effects$differences),]
+
 # Figure 5
 figure5 <- ggplot(effects) +
   facet_grid(
