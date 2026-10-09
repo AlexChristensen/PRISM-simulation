@@ -7,11 +7,11 @@ library(EGAnet); library(latentFactoR); library(psych)
 library(GPArotation); library(compiler); library(Matrix)
 
 # Set polychoric
-polychoric <- function(data)
+polychoric <- function(data, empty.method = "zero", empty.value = "point_five")
 {
 
   # Obtain polychoric matrix
-  R <- polychoric.matrix(data)
+  R <- polychoric.matrix(data, empty.method = empty.method, empty.value = empty.value)
 
   # Check for smoothing
   if(any(eigen(R, symmetric = TRUE, only.values = TRUE)$values < 0)){

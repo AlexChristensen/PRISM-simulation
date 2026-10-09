@@ -454,16 +454,15 @@ ggsave(
 #### Figure 6: Most Challenging Conditions ----
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
-# Evaluate what's happening with PRISM
+# Evaluate what's happening across methods
 results %>%
-  filter(METHOD == "prism", N == 10000) %>%
-  group_by(METHOD, Overlap, LowV, LowF, LowL, HighF, HighL, HighC) %>%
+  group_by(METHOD, Overlap, LowV, LowL, HighL, N) %>%
+  filter(Overlap == TRUE, LowV == 5, LowL == 0.50, HighL == 0.70) %>%
   summarize(
     lower_acc = mean(LOWER_CORRECT),
     lower_mbe = mean(LOWER_MBE)
-  ) %>%
-  filter(lower_acc < 0.80) %>%
-  as.data.frame()
+  ) %>% as.data.frame() %>%
+  print(digits = 3)
 
 
 # Flag the four conditions that, together, collapse first-order recovery:
@@ -675,7 +674,7 @@ figure6 <- annotate_figure(
     "Overlapping Items | Variables per First Order Factor = 5 | First Order Loadings = 0.50 | Second Order Loadings = 0.70",
     size = 12, hjust = 0.50, color = "black"
   )
-)
+); figure6
 # figure6 <- annotate_figure(
 #   figure6,
 #   top = text_grob(
