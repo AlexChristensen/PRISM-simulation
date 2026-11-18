@@ -2,7 +2,11 @@
 #### Hierarchical | Simulate Conditions ####
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 
-# Provide password
+# Provide password once, then keep sudo alive for as long as this R process lives
+system("sudo -v")
+system(sprintf(
+  "( while kill -0 %d 2>/dev/null; do sudo -n -v; sleep 60; done ) >/dev/null 2>&1 &",
+  Sys.getpid()))
 system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
 
 # Make sure environment has single threaded applications
@@ -79,7 +83,7 @@ for(i in seq_len(n_conditions)){
   # Remove replicate
   rm(replicate)
   gc(verbose = FALSE)
-  if((i %% 24) == 0){
+  if((i %% 12) == 0){
     system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
   }
 
